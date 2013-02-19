@@ -25,7 +25,19 @@ song has been played, we need to count the number of times two songs have been p
 other. So, we need our key to represent two songs played in a particular order. The easiest way
 to use a complex key like this is to use [Avro](linktosomething).
 
-* define the record in the avdl
+* In order to count how many times two songs have been played in a row, we need to define a simple
+way to 
+
+{% highlight json %}
+  /** Song play bigram. */
+  record SongBiGram {
+    /** The id of the first song played in a sequence. */
+    string first_song_played;
+
+    /** The id of the song played immediately after it. */
+    string second_song_played;
+  }
+{% endhighlight %}
 
 * implement AvroKeyWriter
 

@@ -18,11 +18,31 @@ calculate the total number of times each song has been played. The result of thi
 written to a sequence file in HDFS.
 
 ### SongPlayCounter.java
-* reads input from a Kiji Table and outputs 
+The SongPlayCounter is an example of a [Gatherer](link to gatherer docs), which is essentially a mapper
+that gets input from a KijiTable.
+
+reads input from a Kiji Table and outputs 
 KijiRowData -> <SongID, 1>
 
 * getDataRequest()
-  The info passed along in a KijiRowData is defined by the getDataRequest() method
+A gatherer takes input from a table, so it must declare what data it will need. It does this in the
+form of a [KijiDataRequest](link data request + builder), which is returned by the getDataRequest().
+For the song count job, we want to request all songs that have been played, for every user. In order
+to get all of the values written to the "info:track_plays" column, we must specify that the maximum
+number of versions we want is HConstants.ALL_VERSIONS. Otherwise, we will only get the more recent
+version by default.
+
+{% highlight java %}
+public KijiDataRequest getDataRequest() {
+  // Retrieve all versions of info:track_plays:
+  final KijiDataRequestBuilder builder = KijiDataRequest.builder();
+  builder.newColumnsDef()
+    .withMaxVersions(HConstants.ALL_VERSIONS)
+    .add("info", "track_plays");
+  return builder.build();
+}
+{% endhighlight %}
+
 
 * setup()
 
