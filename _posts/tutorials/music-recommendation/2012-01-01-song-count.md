@@ -7,13 +7,32 @@ order : 4
 description: Like WordCount, for songs.
 ---
 
-Short description of what this MapReduce job accomplishes.
 
-### ClassName.java
-Describe the Mapper.
+### The 'Hello World!' of MapReduce
+To quote Scalding Developers ['Hadoop is a distributed system for counting words.']
+(https://github.com/twitter/scalding) Unfortunately, we here at PANDORA have very few words to
+count, but millions of users that play millions of different songs.
 
-### ClassName.java
-Describe the Reducer.
+This MapReduce job uses the listening history of our users that we have stored in a Kiji table to
+calculate the total number of times each song has been played. The result of this computation is
+written to a sequence file in HDFS.
+
+### SongPlayCounter.java
+* reads input from a Kiji Table and outputs 
+KijiRowData -> <SongID, 1>
+
+* getDataRequest()
+  The info passed along in a KijiRowData is defined by the getDataRequest() method
+
+* setup()
+
+* gather()
+
+
+### LongSumReducer.java
+<SongId, 1> -> <SongId, N> where N is how many times the song has been played.
+From the KijiMR library. Passes the key through, and sums all LongWritables for a given key.
+
 
 ### Describe Tests
 How did we test this?
