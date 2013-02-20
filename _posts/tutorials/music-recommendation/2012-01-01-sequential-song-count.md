@@ -102,7 +102,6 @@ avro provides for creating schemas of primitive types.
 
 Explain setup of env for tests.
 {% highlight java %}
-  @Before
   public final void setup() throws Exception {
     final KijiTableLayout userLayout =
         KijiTableLayout.createFromEffectiveJsonResource("/layout/users.json");
