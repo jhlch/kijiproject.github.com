@@ -54,13 +54,26 @@ the first song as the key, and a SongCount record representing the song played a
 the value. A SongCount record has a field containing the id of the subsequent song and a field
 for the number of times it has been played after the initial song.
 
-* This reducer takes AvroKeys as input, and writes AvroKeys and AvroValues as output, so it must
+This reducer takes AvroKeys as input, and writes AvroKeys and AvroValues as output, so it must
 implement AvroKeyReader, AvroKeyWriter, and AvroValueWriter. The keys we are emiting are just strings
-so we could use a [Text](link to text key docs) key. Here we made the choice to use an AvroKey so
-that we could use the Kiji defined AvroKeyValue output format. Files of this format can be the input
-or output of an MR job, or used as the backing to a file based [KeyValueStore](kv store link)
+so we could use a [Text](link to text key docs) key. Instead, we made the choice to use an AvroKey
+so that we could use the Kiji defined [AvroKeyValue output format](link to userguide section), which
+requires that you output AvroKeys and AvroValues.
 
-* getWriterSchema() 
+Now, the schema for our avro key is so simple that we don't have to add a record to our .avdl file
+in order to return the correct schema in getWriterSchema(). Instead, we can use the static methods
+avro provides for creating schemas of primitive types.
+
+{% highlight java %}
+  public Schema getAvroKeyWriterSchema() throws IOException {
+    // Programmatically retrieve the avro schema for a String.
+    return Schema.create(Schema.Type.STRING);
+  }
+{% endhighlight %}
+
+* reduce()
+
+
 
 ### Describe Tests
 How did we test this?
