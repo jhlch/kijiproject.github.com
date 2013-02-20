@@ -7,9 +7,8 @@ order : 4
 description: Like WordCount, for songs.
 ---
 
-
 ### The 'Hello World!' of MapReduce
-To quote Scalding Developers ['Hadoop is a distributed system for counting words.']
+To quote Scalding Developers [Hadoop is a distributed system for counting words.]
 (https://github.com/twitter/scalding) Unfortunately, we here at PANDORA have very few words to
 count, but millions of users that play millions of different songs.
 
@@ -18,15 +17,15 @@ calculate the total number of times each song has been played. The result of thi
 written to a sequence file in HDFS.
 
 ### SongPlayCounter.java
-The SongPlayCounter is an example of a [Gatherer](link to gatherer docs), which is essentially a mapper
+The SongPlayCounter is an example of a [Gatherer](link-to-gatherer-docs), which is essentially a mapper
 that gets input from a KijiTable.
 
 reads input from a Kiji Table and outputs 
-KijiRowData -> <SongID, 1>
+KijiRowData -> (SongID, 1)
 
 * getDataRequest()
 A gatherer takes input from a table, so it must declare what data it will need. It does this in the
-form of a [KijiDataRequest](link data request + builder), which is returned by the getDataRequest().
+form of a [KijiDataRequest](link-data-request-builder), which is returned by the getDataRequest().
 For the song count job, we want to request all songs that have been played, for every user. In order
 to get all of the values written to the "info:track_plays" column, we must specify that the maximum
 number of versions we want is HConstants.ALL_VERSIONS. Otherwise, we will only get the more recent
@@ -45,12 +44,34 @@ public KijiDataRequest getDataRequest() {
 
 
 * setup()
+** call super.setup()
+** make sure to cleanup any resoucres you leave open.
+** we are only using the setup to instantiate reusable objects once. This is a common pattern in 
+  Hadoop. Garbage collection can be expensive and potentially causes pauses that can cause
+  jobs to fail due to scanner timeout exceptions.
+
+{% highlight java %}
+  public void setup(GathererContext<Text, LongWritable> context) throws IOException {
+    super.setup(context); // Any time you override setup, call super.setup(context);
+    mText = new Text();
+  }
+{% endhighlight %}
 
 * gather()
-
+{% highlight java %}
+  public void gather(KijiRowData row, GathererContext<Text, LongWritable> context)
+      throws IOException {
+    NavigableMap<Long, CharSequence> trackPlays = row.getValues("info", "track_plays");
+    for (CharSequence trackId : trackPlays.values()) {
+      mText.set(trackId.toString());
+      context.write(mText, ONE);
+      mText.clear();
+    }
+  }
+{% endhighlight %}
 
 ### LongSumReducer.java
-<SongId, 1> -> <SongId, N> where N is how many times the song has been played.
+(SongId, 1) -> (SongId, N) where N is how many times the song has been played.
 From the KijiMR library. Passes the key through, and sums all LongWritables for a given key.
 
 
@@ -66,3 +87,4 @@ $KIJI_HOME/bin/kiji jar \
 </div>
 
 #### Verify
+The above should be human readable (Text), instructions for looking at the first few lines of the file.
