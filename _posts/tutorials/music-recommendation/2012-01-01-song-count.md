@@ -16,6 +16,24 @@ This MapReduce job uses the listening history of our users that we have stored i
 calculate the total number of times each song has been played. The result of this computation is
 written to a sequence file in HDFS.
 
+<div id="accordion-container"> 
+  <h2 class="accordion-header"> SongPlayCounter.java </h2> 
+     <div class="accordion-content"> 
+       
+
+     </div> 
+ <h2 class="accordion-header"> LongSumReducer.java </h2> 
+   <div class="accordion-content"> 
+      <p>Section 2 Content</p> 
+    </div> 
+ <h2 class="accordion-header"> LongSumReducer.java </h2> 
+   <div class="accordion-content"> 
+      <p>Section 2 Content</p> 
+    </div> 
+</div>
+
+<script src="http://gist-it.appspot.com/github/kijiproject/kiji-music/raw/master/src/main/java/org/kiji/examples/music/gather/SongPlayCounter.java"></script>
+
 ### SongPlayCounter.java
 The SongPlayCounter is an example of a [Gatherer](link-to-gatherer-docs), which is essentially a mapper
 that gets input from a KijiTable.
