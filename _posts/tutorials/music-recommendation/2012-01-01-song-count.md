@@ -122,7 +122,7 @@ public class LongSumReducer<K> extends KeyPassThroughReducer<K, LongWritable, Lo
 
 ### SongPlayCounter.java
 The SongPlayCounter is an example of a [Gatherer](link-to-gatherer-docs), which is essentially a
-mapper that gets input from a KijiTable.  SongPlayCounter proceeds through discreet stages:
+mapper that gets input from a KijiTable.  SongPlayCounter proceeds through discrete stages:
 * Setup reusable resources.
 * Read all values from column: "info:track_plays".
 * Process the data from "info:track_plays" and emit a key/value pair for each track id each time

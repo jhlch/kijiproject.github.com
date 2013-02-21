@@ -172,10 +172,12 @@ public class SequentialPlayCountReducer
 </div>
 
 ### SequentialPlayCounter.java
-SequentialPlayCounter.java operates in much the same way that SongPlayCounter.java operated, but
-requires a more complex key structure to store both the song played and the song it followed.
-The easiest way to define this complex key is using [Avro](linktosomething).
-We define a SongBiGram as a pair of songs played sequentially by a single user.
+SequentialPlayCounter.java operates in much the same way that SongPlayCounter.java does, but is
+requires a more complex key structure to store both the song played and the song that followed.
+The easiest way work with complex keys in Kiji is to use [Avro](linktosomething).
+We define a SongBiGram, that will serve as our key, as a pair of songs played sequentially by a
+single user.
+
 {% highlight js %}
   /** Song play bigram. */
   record SongBiGram {
