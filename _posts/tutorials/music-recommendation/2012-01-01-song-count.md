@@ -233,6 +233,7 @@ To verify that SongPlayCounter performs as expected, SongPlayCounter's test:
 <div id="accordion-container">
   <h2 class="accordion-header"> TestSongPlayCounter.java </h2>
      <div class="accordion-content">
+
 {% highlight java %}
 /** Unit-test for the SongPlayCounter gatherer. */
 public class TestSongPlayCounter extends KijiClientTest {
@@ -309,6 +310,7 @@ public class TestSongPlayCounter extends KijiClientTest {
   }
 }
 {% endhighlight %}
+
     </div>
 </div>
 
@@ -318,7 +320,6 @@ instance has been defined, its build method is called, creating the in-memory in
 table.
 
 {% highlight java %}
-  @Before
   public final void setup() throws Exception {
     final KijiTableLayout layout =
         KijiTableLayout.createFromEffectiveJsonResource("/layout/users.json");
