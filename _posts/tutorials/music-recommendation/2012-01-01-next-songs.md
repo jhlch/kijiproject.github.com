@@ -7,6 +7,9 @@ order : 6
 description: Outputing to a Kiji table in a MapReduce job.
 ---
 
+This MapReduce job processes the result of the SequentialSong MR job and writes a list of the top
+songs played after a song (the key) to the corresponding row in the songs table.
+
 <div id="accordion-container"> 
   <h2 class="accordion-header"> IdentityMapper.java </h2> 
      <div class="accordion-content"> 
@@ -140,13 +143,45 @@ public class TopNextSongsReducer
 </div>
 
 ### IdentityMapper.java
+This is a stunning example of Java boiler plate. This mapper just passes through all keys and values
+passed into it.
 
 
 ### TopNextSongsReducer.java 
-* explain the logic of how we get a list of the top songs by using a tree set with a special comparator.
-We only really want ordering for the counts, but we must include the song id in the comparator,
-otherwise the equals comparison that happens will not add songs with the same numbers of counts
-to the *set*.
+The keys passed intot his reducer are song ids and the values are SongCount records. In order to
+find the songs most frequently played after a given song, we need to process identify the SongCount
+records with the largest number of counts, for every key.
+
+To do this efficiently, we will maintain an ordered collection of SongCount records, that has a maximum
+size. As we iterate through all the values, we will keep the top 3 SongCount records seen so far
+in our ordered collection.
+
+In out setup method, we instantiate a TreeSet that will be reused. TreeSets use their comparator
+(as opposed to a class' equals method) to determine if an element is already in the set. In order
+for our TreeSet to contain multiple SongCount records with the same count, we must make sure
+that our comparator differentiates SongCount records with the same number of counts, but with
+different song ids.
+
+{% highlight java %}
+  public void setup(Context context) throws IOException, InterruptedException {
+    super.setup(context); // Any time you override setup, call super.setup(context);
+    mTopSongs = new TopSongs();
+    // This TreeSet will keep track of the "largest" SongCount objects seen so far. Two SongCount
+    // objects, song1 and song2, can be compared and the object with the largest value in the field
+    // count will the declared the largest object.
+    mTopNextSongs = new TreeSet<SongCount>(new Comparator<SongCount>() {
+      @Override
+      public int compare(SongCount song1, SongCount song2) {
+        if (song1.getCount().compareTo(song2.getCount()) == 0) {
+          return song1.getSongId().toString().compareTo(song2.getSongId().toString());
+        } else {
+          return song1.getCount().compareTo(song2.getCount());
+        }
+      }
+    });
+  }
+{% endhighlight %}
+
 
 * explain that we want to write to a table so that we can look up the top next songs later. Thus,
 implement KijiTableReducer. The context.put + its expected params should be explained.
