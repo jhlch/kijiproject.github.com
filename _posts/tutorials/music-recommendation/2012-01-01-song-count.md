@@ -215,8 +215,151 @@ Prepares reusable resources to avoid timeout exceptions caused by garbage collec
   }
 {% endhighlight %}
 
-### Describe Tests
-How did we test this?
+### TestSongPlayCounter.java
+To verify that SongPlayCounter performs as expected, SongPlayCounter's test:
+* Creates and populates an in-memory Kiji instance
+* Runs a MapReduce job with SongPlayCounter as the gatherer and LongSumReducer as the reducer
+* Verifies that the output is as expected
+
+<div id="accordion-container">
+  <h2 class="accordion-header"> TestSongPlayCounter.java </h2>
+     <div class="accordion-content">
+{% highlight java %}
+/** Unit-test for the SongPlayCounter gatherer. */
+public class TestSongPlayCounter extends KijiClientTest {
+  private static final Logger LOG = LoggerFactory.getLogger(TestSongPlayCounter.class);
+
+  private KijiURI mTableURI;
+
+  /** Initialize our environment. */
+  @Before
+  public final void setup() throws Exception {
+    final KijiTableLayout layout =
+        KijiTableLayout.createFromEffectiveJsonResource("/layout/users.json");
+    final String tableName = layout.getName();
+    mTableURI = KijiURI.newBuilder(getKiji().getURI()).withTableName(tableName).build();
+
+    new InstanceBuilder(getKiji())
+        .withTable(tableName, layout)
+            .withRow("user-1").withFamily("info").withQualifier("track_plays")
+                .withValue(1L, "song-1")
+                .withValue(2L, "song-2")
+                .withValue(3L, "song-3")
+            .withRow("user-2").withFamily("info").withQualifier("track_plays")
+                .withValue(1L, "song-1")
+                .withValue(2L, "song-3")
+                .withValue(3L, "song-4")
+                .withValue(4L, "song-1")
+            .withRow("user-3").withFamily("info").withQualifier("track_plays")
+                .withValue(1L, "song-5")
+        .build();
+  }
+
+  /* Test our play count computes the expected results. */
+  @Test
+  public void testSongPlayCounter() throws Exception {
+    final File outputDir = new File(getLocalTempDir(), "output.sequence_file");
+    final MapReduceJob mrjob = KijiGatherJobBuilder.create()
+        .withConf(getConf())
+        .withGatherer(SongPlayCounter.class)
+        .withReducer(LongSumReducer.class)
+        .withInputTable(mTableURI)
+        // Note: the local map/reduce job runner does not allow more than one reducer:
+        .withOutput(new SequenceFileMapReduceJobOutput(new Path("file://" + outputDir), 1))
+        .build();
+    assertTrue(mrjob.run());
+
+    final Map<String, Long> counts = Maps.newTreeMap();
+    readSequenceFile(new File(outputDir, "part-r-00000"), counts);
+    LOG.info("Counts map: {}", counts);
+    assertEquals(5, counts.size());
+    assertEquals(3L, (long) counts.get("song-1"));
+    assertEquals(1L, (long) counts.get("song-2"));
+    assertEquals(2L, (long) counts.get("song-3"));
+    assertEquals(1L, (long) counts.get("song-4"));
+    assertEquals(1L, (long) counts.get("song-5"));
+  }
+
+  /**
+   * Reads a sequence file of (song ID, # of song plays) into a map.
+   *
+   * @param path Path of the sequence file to read.
+   * @param map Map to fill in with (song ID, # of song plays) entries.
+   * @throws Exception on I/O error.
+   */
+  private void readSequenceFile(File path, Map<String, Long> map) throws Exception {
+    final SequenceFile.Reader reader = new SequenceFile.Reader(
+        getConf(),
+        SequenceFile.Reader.file(new Path("file://" + path.toString())));
+    final Text songId = new Text();
+    final LongWritable nplays = new LongWritable();
+    while (reader.next(songId, nplays)) {
+      map.put(songId.toString(), nplays.get());
+    }
+    reader.close();
+  }
+}
+{% endhighlight %}
+    </div>
+</div>
+
+#### Create an in-memory Kiji instance
+The InstanceBuilder class provides methods for populating a test Kiji instance. Once the test
+instance has been defined, its build method is called, creating the in-memory instance and
+table.
+
+{% highlight java %}
+  @Before
+  public final void setup() throws Exception {
+    final KijiTableLayout layout =
+        KijiTableLayout.createFromEffectiveJsonResource("/layout/users.json");
+    final String tableName = layout.getName();
+    mTableURI = KijiURI.newBuilder(getKiji().getURI()).withTableName(tableName).build();
+
+    new InstanceBuilder(getKiji())
+        .withTable(tableName, layout)
+            .withRow("user-1").withFamily("info").withQualifier("track_plays")
+                .withValue(1L, "song-1")
+                .withValue(2L, "song-2")
+                .withValue(3L, "song-3")
+            .withRow("user-2").withFamily("info").withQualifier("track_plays")
+                .withValue(1L, "song-1")
+                .withValue(2L, "song-3")
+                .withValue(3L, "song-4")
+                .withValue(4L, "song-1")
+            .withRow("user-3").withFamily("info").withQualifier("track_plays")
+                .withValue(1L, "song-5")
+        .build();
+  }
+{% endhighlight %}
+
+#### Run and verify SongPlayCounter
+KijiGatherJobBuilder is used to create a test MapReduce job. This job builder can be used outside
+the context of a test to configure and run jobs programatically. The job is then run using Hadoop's
+local job runner. The resulting output sequence file is then validated.
+
+{% highlight java %}
+  final File outputDir = new File(getLocalTempDir(), "output.sequence_file");
+  final MapReduceJob mrjob = KijiGatherJobBuilder.create()
+      .withConf(getConf())
+      .withGatherer(SongPlayCounter.class)
+      .withReducer(LongSumReducer.class)
+      .withInputTable(mTableURI)
+      // Note: the local map/reduce job runner does not allow more than one reducer:
+      .withOutput(new SequenceFileMapReduceJobOutput(new Path("file://" + outputDir), 1))
+      .build();
+  assertTrue(mrjob.run());
+
+  final Map<String, Long> counts = Maps.newTreeMap();
+  readSequenceFile(new File(outputDir, "part-r-00000"), counts);
+  LOG.info("Counts map: {}", counts);
+  assertEquals(5, counts.size());
+  assertEquals(3L, (long) counts.get("song-1"));
+  assertEquals(1L, (long) counts.get("song-2"));
+  assertEquals(2L, (long) counts.get("song-3"));
+  assertEquals(1L, (long) counts.get("song-4"));
+  assertEquals(1L, (long) counts.get("song-5"));
+{% endhighlight %}
 
 ### Running the Example
 

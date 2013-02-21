@@ -283,11 +283,25 @@ songs occurred together.
   }
 {% endhighlight %}
 
+### TestSequentialSongPlayCounter.java
+To verify that SequentialPlayCounter and SequentialPlayCountReducer function as expected, their
+test:
+* Creates and populates an in-memory Kiji instance
+* Runs a MapReduce job with SequentialPlayCounter as the gatherer and SequentialPlayCountReducer as the reducer
+* Verifies that the output is as expected
 
-### Describe Tests
-
-Explain setup of env for tests.
+<div id="accordion-container">
+  <h2 class="accordion-header"> TestSequentialSongPlayCounter.java </h2>
+    <div class="accordion-content">
 {% highlight java %}
+/** Test for SequentialPlayCounter. */
+public class TestSequentialSongPlayCounter extends KijiClientTest {
+  private static final Logger LOG = LoggerFactory.getLogger(TestSongPlayCounter.class);
+
+  private KijiURI mUserTableURI;
+
+  /** Initialize our environment. */
+  @Before
   public final void setup() throws Exception {
     final KijiTableLayout userLayout =
         KijiTableLayout.createFromEffectiveJsonResource("/layout/users.json");
@@ -307,13 +321,122 @@ Explain setup of env for tests.
             .withRow("user-3").withFamily("info").withQualifier("track_plays")
                 .withValue(1L, "song-5")
         .build();
-    }
+  }
+
+  /** Test that our MR job computes results as expected. */
+  @Test
+  public void testSongPlayCounter() throws Exception {
+    // Configure and run job.
+    final File outputDir = new File(getLocalTempDir(), "output.sequence_file");
+    final Path path = new Path("file://" + outputDir);
+    final MapReduceJob mrjob = KijiGatherJobBuilder.create()
+        .withConf(getConf())
+        .withGatherer(SequentialPlayCounter.class)
+        .withReducer(SequentialPlayCountReducer.class)
+        .withInputTable(mUserTableURI)
+        // Note: the local map/reduce job runner does not allow more than one reducer:
+        .withOutput(new AvroKeyValueMapReduceJobOutput(new Path("file://" + outputDir), 1))
+        .build();
+    assertTrue(mrjob.run());
+
+    // Using a KVStoreReader here is a hack. It works in the sense it is easy to read from, but it
+    // assumes that the is only one value for every key.
+    AvroKVRecordKeyValueStore.Builder kvStoreBuilder = AvroKVRecordKeyValueStore.builder()
+        .withInputPath(path).withConfiguration(getConf());
+    final AvroKVRecordKeyValueStore outputKeyValueStore = kvStoreBuilder.build();
+    KeyValueStoreReader reader = outputKeyValueStore.open();
+
+    // Check that our results are correct.
+    assertTrue(reader.containsKey("song-1"));
+    SongCount song1Result = (SongCount) reader.get("song-1");
+    assertEquals(2L, song1Result.getCount().longValue());
+    // Avro strings are deserialized to CharSequences in Java, .toString() allows junit to correctly
+    // compare the expected and actual values.
+
+    assertEquals("song-2", song1Result.getSongId().toString());
+    assertTrue(reader.containsKey("song-2"));
+    SongCount song2Result = (SongCount) reader.get("song-2");
+    assertEquals(1L, song2Result.getCount().longValue());
+    // Avro strings are deserialized to CharSequences in Java, .toString() allows junit to correctly
+    // compare the expected and actual values.
+    assertEquals("song-3", song2Result.getSongId().toString());
+  }
+}
+{% endhighlight %}
+  </div>
+</div>
+
+#### Create an in-memory Kiji instance
+The InstanceBuilder class provides methods for populating a test Kiji instance. Once the test
+instance has been defined, its build method is called, creating the in-memory instance and
+table.
+
+{% highlight java %}
+  public final void setup() throws Exception {
+    final KijiTableLayout userLayout =
+        KijiTableLayout.createFromEffectiveJsonResource("/layout/users.json");
+    final String userTableName = userLayout.getName();
+    mUserTableURI = KijiURI.newBuilder(getKiji().getURI()).withTableName(userTableName).build();
+
+    new InstanceBuilder(getKiji())
+        .withTable(userTableName, userLayout)
+            .withRow("user-1").withFamily("info").withQualifier("track_plays")
+                .withValue(2L, "song-2")
+                .withValue(3L, "song-1")
+            .withRow("user-2").withFamily("info").withQualifier("track_plays")
+                .withValue(2L, "song-3")
+                .withValue(3L, "song-2")
+                .withValue(4L, "song-1")
+            .withRow("user-3").withFamily("info").withQualifier("track_plays")
+                .withValue(1L, "song-5")
+        .build();
+  }
 {% endhighlight %}
 
-Explain programmatically constructing an MR job with a job builder.
+#### Run and verify SequentialPlayCounter and SequentialPlayCountReducer
+KijiGatherJobBuilder is used to create a test MapReduce job. This job builder can be used outside
+the context of a test to configure and run jobs programatically. The job is then run using Hadoop's
+local job runner. The resulting output sequence file is then validated.
+
+{% highlight java %}
+  // Configure and run job.
+  final File outputDir = new File(getLocalTempDir(), "output.sequence_file");
+  final Path path = new Path("file://" + outputDir);
+  final MapReduceJob mrjob = KijiGatherJobBuilder.create()
+      .withConf(getConf())
+      .withGatherer(SequentialPlayCounter.class)
+      .withReducer(SequentialPlayCountReducer.class)
+      .withInputTable(mUserTableURI)
+      // Note: the local map/reduce job runner does not allow more than one reducer:
+      .withOutput(new AvroKeyValueMapReduceJobOutput(new Path("file://" + outputDir), 1))
+      .build();
+  assertTrue(mrjob.run());
+{% endhighlight %}
 
 Reading back files is easy with normal file or table readers, currently avrokv files can be read
 in a limited way using a KeyValueStoreReader.
+
+{% highlight java %}
+  AvroKVRecordKeyValueStore.Builder kvStoreBuilder = AvroKVRecordKeyValueStore.builder()
+      .withInputPath(path).withConfiguration(getConf());
+  final AvroKVRecordKeyValueStore outputKeyValueStore = kvStoreBuilder.build();
+  KeyValueStoreReader reader = outputKeyValueStore.open();
+
+  // Check that our results are correct.
+  assertTrue(reader.containsKey("song-1"));
+  SongCount song1Result = (SongCount) reader.get("song-1");
+  assertEquals(2L, song1Result.getCount().longValue());
+  // Avro strings are deserialized to CharSequences in Java, .toString() allows junit to correctly
+  // compare the expected and actual values.
+
+  assertEquals("song-2", song1Result.getSongId().toString());
+  assertTrue(reader.containsKey("song-2"));
+  SongCount song2Result = (SongCount) reader.get("song-2");
+  assertEquals(1L, song2Result.getCount().longValue());
+  // Avro strings are deserialized to CharSequences in Java, .toString() allows junit to correctly
+  // compare the expected and actual values.
+  assertEquals("song-3", song2Result.getSongId().toString());
+{% endhighlight %}
 
 ### Running the Example
 
