@@ -5,21 +5,6 @@ title: Kiji Tutorial Index
 
 Major components of Kiji have tutorials to get you started
 
-<div id="accordion-container"> 
-  <h2 class="accordion-header"> SongPlayCounter.java </h2> 
-     <div class="accordion-content"> 
-       <p>words</p>
-     </div> 
- <h2 class="accordion-header"> LongSumReducer.java </h2> 
-   <div class="accordion-content"> 
-      <p>Section 2 Content</p> 
-    </div> 
- <h2 class="accordion-header"> LongSumReducer.java </h2> 
-   <div class="accordion-content"> 
-      <p>Section 2 Content</p> 
-    </div> 
-</div>
-
 Click a link below to select the version of the tutorial appropriate
 to the Kiji version you are using.
 

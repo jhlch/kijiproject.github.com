@@ -263,7 +263,7 @@ the value we want to write as the parameter.
 {% endhighlight %}
 
 ### Running the Example
-
+When we run this example, we need to give the 
 <div class="userinput">
 {% highlight bash %}
 kiji produce \
@@ -276,7 +276,6 @@ kiji produce \
 </div>
 
 #### Verify
-
 
 <div class="userinput">
 {% highlight bash %}
