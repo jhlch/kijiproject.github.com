@@ -8,14 +8,13 @@ description: Like WordCount, for songs.
 ---
 
 ### The 'Hello World!' of MapReduce
-To quote Scalding Developers [Hadoop is a distributed system for counting words.](https://github.com/twitter/scalding) Unfortunately, we here at PANDORA have very few words to
-count, but millions of users that play millions of different songs.
+To quote Scalding Developers [Hadoop is a distributed system for counting words.](https://github.com/twitter/scalding)
+Unfortunately, we here at PANDORA are fresh out of words, but the play history of millions of users
+listening to  millions of different songs.
 
 This MapReduce job uses the listening history of our users that we have stored in a Kiji table to
 calculate the total number of times each song has been played. The result of this computation is
-written to a text file in HDFS.  Between the map and reduce tasks described below, Hadoop performs
-a group by key operation which collects all values mapped to the same key into an iterator and returns
-key/iterator pairs.
+written to a text file in HDFS.
 
 <div id="accordion-container">
   <h2 class="accordion-header"> SongPlayCounter.java </h2>
@@ -129,11 +128,14 @@ mapper that gets input from a KijiTable.  SongPlayCounter proceeds through discr
   it occurs.
 
 #### Initialize Resources
-  Prepares any resources that may be needed by the gatherer.  In Hadoop, reusable objects are
-  commonly instantiated only once to protect against possible scanner timeout exceptions caused
-  by garbage collection.  Because setup() is an overriden method, we call super.setup() to
-  ensure that all resources are initialized properly.  If you open resources in setup(), be
-  sure to close them in the corresponding cleanup() method.
+Prepares any resources that may be needed by the gatherer.  In Hadoop, reusable objects are
+commonly instantiated only once to protect against long garbage collection pauses. This is
+particularly important with Kiji because long garbage collection pauses can cause MR jobs to fail
+because various resource timeout or cannot be found.
+
+Since setup() is an overriden method, we call super.setup() to ensure that all resources are
+initialized properly.  If you open resources in setup(), be sure to close them in the corresponding
+cleanup() method.
 
 {% highlight java %}
   public void setup(GathererContext<Text, LongWritable> context) throws IOException {
@@ -162,9 +164,10 @@ public KijiDataRequest getDataRequest() {
 {% endhighlight %}
 
 #### Process track play data into key/value pairs for occurrences
-  Called once for each row in the Kiji table, gather() uses a GathererContext to write
-  key/value pairs for each track id paired with one (1) as a tally.
-
+Called once for each row in the Kiji table, gather() retrieves all the values in the
+"info:track_plays" column, and for each value, sets the Text object we are resuing to contain the
+current value, writes the key-value pairs using `context.write(mText, ONE)` and then clears the Text
+object before the next call to gather.
 {% highlight java %}
   public void gather(KijiRowData row, GathererContext<Text, LongWritable> context)
       throws IOException {
@@ -178,14 +181,20 @@ public KijiDataRequest getDataRequest() {
 {% endhighlight %}
 
 ### LongSumReducer.java
-The LongSumReducer calls reduce() on each key/iterator pair from the GroupByKey phase to
-produce a total play count for each track id.  Because summing is a common MapReduce operation,
-LongSumReducer.java is provided by the KijiMR library.  LongSumReducer has two simple stages:
+The key-value pairs emiited from the gatherer are shuffled and sorted by the MapReduce framework,
+so that each (call to reduce/reducer) is given a key and an iterator of all values associated with
+a key. The LongSumReducer calls reduce() for each key and sums all of the associated values to produce a
+total play count for each song id. The LongSumReducer has two stages:
 * Setup reusable resources.
-* Reduce key/iterator pairs to key/value pairs and write them to the output collector.
+* Sums the values associated with a key.
+* Outputs the key paired with the sum. 
+
+Summing values is such a common MapReduce operation, LongSumReducer.java is provided by the KijiMR
+library. 
 
 #### Initialize Resources
-Prepares reusable resources to avoid timeout exceptions caused by garbage collection.
+It is common practice to avoid instantiating new objects in map or reduce methods
+Hadoop developers have a (perhaps now outdated) skepticism of garbage collection in the JVM. 
 
 {% highlight java %}
   protected void setup(Context context) {
@@ -193,10 +202,10 @@ Prepares reusable resources to avoid timeout exceptions caused by garbage collec
   }
 {% endhighlight %}
 
-#### Sum play counts for each song
-  Called for each key/iterator pair from the GroupByKey phase above, reduce() combines the
-  results of each iterator to singular values by summing the tallies and writes the resulting
-  value for each key to the output collector.
+#### Sum Values and Output Total
+Called once for each key, reduce() combines the
+all of the values associated with a key by adding then together and writing the total for each key
+to the output collector.
 
 {% highlight java %}
   public void reduce(K key, Iterator<LongWritable> values,
@@ -217,9 +226,9 @@ Prepares reusable resources to avoid timeout exceptions caused by garbage collec
 
 ### TestSongPlayCounter.java
 To verify that SongPlayCounter performs as expected, SongPlayCounter's test:
-* Creates and populates an in-memory Kiji instance
-* Runs a MapReduce job with SongPlayCounter as the gatherer and LongSumReducer as the reducer
-* Verifies that the output is as expected
+* Creates and populates an in-memory Kiji instance.
+* Runs a MapReduce job with SongPlayCounter as the gatherer and LongSumReducer as the reducer.
+* Verifies that the output is as expected.
 
 <div id="accordion-container">
   <h2 class="accordion-header"> TestSongPlayCounter.java </h2>
@@ -376,7 +385,7 @@ $ kiji gather \
 
 #### Verify
 
-To confirm that the gather job worked:
+To confirm that the gather job worked, examine the output using hadoop filesystem commandline tools:
 
 <div class="userinput">
 {% highlight bash %}
@@ -387,6 +396,3 @@ song-12 101
 ...
 {% endhighlight %}
 </div>
-
-Your output may vary because ordering is not guaranteed after Hadoop reduce jobs,
-but the format should be the same.

@@ -7,7 +7,6 @@ order : 5
 description: Includes info on working with Avro
 ---
 
-
 Instead of recommending the most popular songs to everyone using our service, we want to tailor our
 recommendations based on user's listening history. For every user, we will lookup the most recent
 song they have listened to and then recommend the song most frequently played after it. In order

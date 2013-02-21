@@ -143,19 +143,27 @@ public class TopNextSongsReducer
 </div>
 
 ### IdentityMapper.java
-This is a stunning example of Java boiler plate. This mapper just passes through all keys and values
+This is a stunning homage to Java boiler plate. This mapper just passes through all keys and values
 passed into it.
 
 
 ### TopNextSongsReducer.java 
-The keys passed intot his reducer are song ids and the values are SongCount records. In order to
-find the songs most frequently played after a given song, we need to process identify the SongCount
+The keys passed into this reducer are song ids and the values are SongCount records. In order to
+find the songs most frequently played after a given song, we need to identify the SongCount
 records with the largest number of counts, for every key.
 
 To do this efficiently, we will maintain an ordered collection of SongCount records, that has a maximum
-size. As we iterate through all the values, we will keep the top 3 SongCount records seen so far
+size. As we iterate through all the values, we will keep the top SongCount records seen so far
 in our ordered collection.
 
+This reducer
+* Creates an ordered collection that will maintain a list of the top SongCount record, for each key.
+* Examines each value for a key, and maintains a running list of the top SongCount records seen so
+  far.
+* Writes a TopNextSongs record to the songs table.
+
+
+#### Create an ordered Collection
 In out setup method, we instantiate a TreeSet that will be reused. TreeSets use their comparator
 (as opposed to a class' equals method) to determine if an element is already in the set. In order
 for our TreeSet to contain multiple SongCount records with the same count, we must make sure
@@ -182,9 +190,49 @@ different song ids.
   }
 {% endhighlight %}
 
+#### Maintain a collection of the top SongCount records
+To find the top N songs, we iterate through the values associated with a given key, adding that
+value to our set, and then removing the smallest value if our set is larger than the number of top
+SongCount records we want to find.
 
-* explain that we want to write to a table so that we can look up the top next songs later. Thus,
-implement KijiTableReducer. The context.put + its expected params should be explained.
+It is worht pointing out that when you call value.datum(), the *same* SongCount record, with
+different fields, will be returned.  Many Hadoop projects reuse objects, so be aware! To get around
+the problem that this creates with trying to use a set, we create a new SongCount record for each
+value using SongCount's builder method.
+
+{% highlight java %}
+  protected void reduce(AvroKey<CharSequence> key, Iterable<AvroValue<SongCount>> values,
+      KijiTableContext context) throws IOException {
+    // We are reusing objects, so we should make sure they are cleared for each new key.
+    mTopNextSongs.clear();
+
+    // Iterate through the song counts and track the top ${mNumberOfTopSongs} counts.
+    for (AvroValue<SongCount> value : values) {
+      // Remove AvroValue wrapper.
+      SongCount currentSongCount = SongCount.newBuilder(value.datum()).build();
+
+      mTopNextSongs.add(currentSongCount);
+      // If we now have too many elements, remove the element with the smallest count.
+      if (mTopNextSongs.size() > mNumberOfTopSongs) {
+        mTopNextSongs.pollFirst();
+      }
+    }
+    // Set the field of mTopSongs to be a list of SongCounts corresponding to the top songs played
+    // next for this key/song.
+    mTopSongs.setTopSongs(Lists.newArrayList(mTopNextSongs));
+{% endhighlight %}
+
+#### Write TopNextSongs to the songs table.
+We can write the list of top next songs to the "info:top_next_songs" column using context.put(). The
+only thing to remember witht his method, is that the first arguement is expected to be an entityId.
+Luckily, context also contains methods for generating EntityIds.
+
+{% highlight java%}
+    ...
+    // Write this to the song table.
+    context.put(context.getEntityId(key.datum().toString()), "info", "top_next_songs", mTopSongs);
+  }
+{% endhighlight %}
 
 ### Describe Tests
 Talk about how cool it is that we can test the result of a sequence of jobs in a unit test.
