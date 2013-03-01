@@ -47,13 +47,12 @@ articles and userguides.
 
 
 ## Previewing Changes
-### PreReqs
 In order to preview what your changes look like, you will need to have
 Ruby and Jekyll installed. It is highly recommended that you control your
 ruby version using rvm. Check out instructions at
 http://github.com/mojombo/jekyll.
 
-### Seeing Something
+
 To see how your local version of kiji-docs renders, run `rake preview`. This
 command turns off google analytics, so as not to inflate our stats, and runs 
 `jekyll --no-auto --server --pygments --no-lsi --safe`. Since we use the no-auto
@@ -73,3 +72,25 @@ pygments installed.
 * Reference the jira in the commit message (e.g., "DOCS-1: Subscribe buttons to the mailing lists on the website are broken")
 * Push your branch: git push origin my_fix.
 * Use [pull requests](https://help.github.com/articles/using-pull-requests) to contribute your changes once you are done.
+
+## Maintaing Docs
+
+
+In order to maintain the docs repo, you need to know:
+* How Jekyll works. We use a particular framework called [Jekyll Bootstrap](http://jekyllbootstrap.com/)
+  Their docs are great, so use them. 
+* How we use front matter on posts. The most important(/hackiest uses) labels and their uses are:
+  ** categories : This defines the prefix of a url. For example a post with categories = [a, b, c] and
+     file name 2012-01-01-title, will have the full url of {{ site.BASE_URL }}/a/b/c/title.
+  ** order : Putting sections of the userguide in the correct order is tricky, and done in a very
+     silly way. See _includes/themes/twitter/post.html and _includes/side-toc.html for examples of
+     where the order label is used. Jekyll is not made for our use case, so we have some hilarious
+     ways of bending its behavior to our will. In the long run, the way we generate the side-toc is
+     going to slow down the generation of the site considerably. This is one reason that the current
+     Jekyll based docs site is going to need to be replaced with something more resilient in the future.
+* The directory structure inside of the _posts doesn't affect the urls that get generated for posts,
+  but we make it match the urls as much as possible. Specificly, that means that if the overview
+  section of a userguide has the categories tag [userguides, schema, 1.0.0-rc4], then the markdown
+  file should be located in _posts/userguides/schema/1.0.0-rc4. This is just a convention that helps
+  with organization and navigation.
+* Sometimes weird errors happen, adding whitespace will help, about half of the time.
